@@ -1,4 +1,5 @@
-﻿using ImportAnything.Services.Interfaces;
+﻿using ImportAnything.Services;
+using ImportAnything.Services.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -18,8 +19,7 @@ namespace ImportAnything.Models
 
         public override string ToString()
         {
-            var types = Transformer.GetTransformerTypes();
-            return $"{types.Item1.Name} -> {types.Item2.Name}";
+            return Transformer.ToString();
         }
 
         /// <summary>
@@ -32,13 +32,19 @@ namespace ImportAnything.Models
             NextNodes.AddRange(nodes.Where(p => p.Transformer.GetTransformerTypes().Item1 == outputType));
         }
 
-        public IEnumerable<TransformerPath> FindPaths<TTo>()
+        public IEnumerable<TransformerPath> FindPaths<TTo>(List<TransformerGraph> exclusions=null)
         {
+            if (exclusions == null)
+                exclusions = new List<TransformerGraph>();
+
+            exclusions.Add(this);
+
             if (Transformer.CanTransformInto<TTo>())
                 return new TransformerPath[] { new TransformerPath(Transformer) };
 
             var paths = NextNodes
-                .SelectMany(p => p.FindPaths<TTo>())
+                .Where(node=> ! exclusions.Contains(node))
+                .SelectMany(p => p.FindPaths<TTo>(exclusions.ToList()))
                 .ToArray();
 
             foreach (var path in paths)

@@ -5,52 +5,126 @@ namespace ImportAnything.Services.Interfaces
 {
     public interface ITransformer
     {
-        object TransformObject(object source);
+        object TryTransformObject(object source);
+        Tuple<Type, Type> GetTransformerTypes();
+        bool CanTransform<T>();
+        bool CanTransformInto<T>();
+        bool CanTransform<A, B>();
+        string DescribeOutput();
+        bool CanTransform<T>(T source);
     }
 
     public interface ITransformer<TFrom, TTo> : ITransformer
     {
-        TTo Transform(TFrom source);
+        Tuple<TTo, bool> TryTransform(TFrom source);
+
+        bool CanTransform(TFrom source);
     }    
 
-    public static class ITransformerExtensions
+    public abstract class Transformer<TFrom, TTo> : ITransformer<TFrom, TTo>
     {
-        public static string Describe(this ITransformer transformer)
+        private Tuple<Type, Type> _transformerTypes;
+
+        protected Transformer()
         {
-            var types = transformer.GetTransformerTypes();
-            return $"{types.Item1.Name} -> {types.Item2.Name}";
+            _transformerTypes = GetTransformerTypes();
         }
 
-        public static string DescribeOutput(this ITransformer transformer)
+        public override string ToString()
         {
-            var types = transformer.GetTransformerTypes();
-            return $" -> {types.Item2.Name}";
+            var types = GetTransformerTypes();
+            return $"{types.Item1.Describe()} -> {types.Item2.Describe()}";
         }
 
-        public static Tuple<Type,Type> GetTransformerTypes(this ITransformer transformer)
+        public string DescribeOutput()
         {
-            var genericArgs = transformer.GetType().GenericTypeArguments;
-
-            return new Tuple<Type, Type>(
-                item1: genericArgs.FirstOrDefault() ?? typeof(object),
-                item2: genericArgs.LastOrDefault() ?? typeof(object));            
+            var types = GetTransformerTypes();
+            return $" -> {types.Item2.Describe()}";
         }
 
-        public static bool CanTransform<T>(this ITransformer transformer)
+        public Tuple<Type, Type> GetTransformerTypes()
         {
-            return transformer.GetTransformerTypes().Item1 == typeof(T);
+            if (_transformerTypes != null)
+                return _transformerTypes;
+
+            foreach (var iTransformerInterfaceType in GetType().GetInterfaces()
+                .Where(p => typeof(ITransformer).IsAssignableFrom(p)))
+            {
+                var genericArgs = iTransformerInterfaceType.GenericTypeArguments;
+                if (genericArgs.Length == 2)
+                    return new Tuple<Type, Type>(genericArgs[0], genericArgs[1]);
+            }
+
+            return new Tuple<Type, Type>(typeof(object), typeof(object));
         }
 
-        public static bool CanTransformInto<T>(this ITransformer transformer)
+        public bool CanTransform<T>()
         {
-            return transformer.GetTransformerTypes().Item2 == typeof(T);
+            return GetTransformerTypes().Item1 == typeof(T);
         }
 
-        public static bool CanTransform<TFrom, TTo>(this ITransformer transformer)
+        public bool CanTransformInto<T>()
         {
-            var types = transformer.GetTransformerTypes();
-            return types.Item1 == typeof(TFrom) && types.Item2 == typeof(TTo); //todo - subclasses
+            return GetTransformerTypes().Item2 == typeof(T);
+        }
 
+        public bool CanTransform<A,B>()
+        {
+            var types = GetTransformerTypes();
+            return types.Item1 == typeof(A) && types.Item2 == typeof(B); //todo - subclasses
+        }
+
+        public Tuple<TTo,bool> TryTransform(TFrom source)
+        {
+            if (CanTransform(source))
+            {
+                var result = Transform(source);
+                if (ValidateResults(result))
+                    return new Tuple<TTo, bool>(result, true);
+                else
+                    return new Tuple<TTo, bool>(result, false);
+            }
+            else
+                return new Tuple<TTo, bool>(default(TTo), false);
+        }
+
+        protected abstract TTo Transform(TFrom source);
+
+        bool ITransformer.CanTransform<T>(T source)
+        {
+            return CanTransform<T>() && CanTransform((TFrom)((object)source));
+        }
+
+        bool ITransformer<TFrom, TTo>.CanTransform(TFrom source)
+        {
+            return CanTransform<TFrom>() && CanTransform(source);
+        }
+
+        protected virtual bool CanTransform(TFrom source)
+        {
+            return true;
+        }
+
+        protected virtual bool ValidateResults(TTo results)
+        {
+            return true;
+        }
+
+        object ITransformer.TryTransformObject(object source)
+        {
+            if (source is TFrom)
+            {
+                if (!CanTransform((TFrom)source))
+                    return null;
+
+                var result = TryTransform((TFrom)source);
+                if (result.Item2)
+                    return result.Item1;
+                else
+                    return null;
+            }
+            else
+                throw new InvalidCastException($"Source cannot be cast to type {typeof(TFrom).Describe()}");
         }
     }
 }

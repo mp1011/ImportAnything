@@ -1,4 +1,5 @@
 ﻿using ImportAnything.Models;
+using ImportAnything.Services.Consolidators;
 using ImportAnything.Services.Interfaces;
 using System;
 using System.Collections.Generic;
@@ -9,48 +10,74 @@ namespace ImportAnything.Services
     public class TransformerService
     {
         private TransformerGraph[] _graphs;
+        private IConsolidator[] _consolidators;
 
-        public TransformerService(params ITransformer[] transformers)
+        public TransformerService(params ITransformer[] transformers) :
+            this(new TransformerGraphService().BuildGraph(transformers).ToArray(), null)
         {
-            _graphs = new TransformerGraphService().BuildGraph(transformers).ToArray();
+        }
+
+        public TransformerService(TransformerGraph[] graphs, IConsolidator[] consolidators)
+        {
+            _graphs = graphs;
+            _consolidators = consolidators ?? new IConsolidator[] { };
         }
 
         public TTo Transform<TFrom, TTo>(TFrom source)
         {
-            TTo ret = default(TTo);
-            bool foundPath = false;
+            List<TTo> ret = new List<TTo>();
 
-            foreach (var node in _graphs.Where(p => p.Transformer.CanTransform<TFrom>()))
+            foreach (var node in _graphs.Where(p => p.Transformer.CanTransform(source)))
             {
                 var paths = node.FindPaths<TTo>().ToArray();
 
-                if (paths.Any())
-                {
-                    if (foundPath || paths.Count() > 1)
-                        throw new Exception($"More than one transformation path was found between {typeof(TFrom).Name} and {typeof(TTo).Name}");
+                var possibleResults = paths.Select(p => TryTransform<TFrom, TTo>(source, p))
+                    .Where(p => p.Item2)
+                    .Select(p => p.Item1)
+                    .ToArray();
 
-                    foundPath = true;
-                    ret = Transform<TFrom, TTo>(source, paths.First());
-                }
+                foreach (var result in possibleResults)
+                    ret.Add(result);
             }
 
-            if (!foundPath)
-                throw new Exception($"No transformation path was found between {typeof(TFrom).Name} and {typeof(TTo).Name}");
+            if (!ret.Any())
+                throw new Exception($"No transformation path was found between {typeof(TFrom).Describe()} and {typeof(TTo).Describe()}");
 
-            return ret;
-
+            if (ret.Count > 1)
+                return Consolidate(ret);
+            else
+                return ret[0];
         }
 
-        public TTo Transform<TFrom, TTo>(TFrom source, IEnumerable<ITransformer> transformationsToApply)
+        private TTo Consolidate<TTo>(IEnumerable<TTo> entries)
+        {
+            var consolidator = _consolidators.OfType<IConsolidator<TTo>>().FirstOrDefault();
+            
+            //todo , can structuremap do this automatically? also this is a bad place for this logic
+            if(consolidator == null && typeof(TTo).IsArray)
+            {
+                var consolidatorType = typeof(ArrayConsolidator<,>).MakeGenericType(typeof(TTo), typeof(TTo).GetElementType());
+                consolidator = (IConsolidator<TTo>)Activator.CreateInstance(consolidatorType);
+            }
+
+            if (consolidator == null)
+                throw new Exception($"Multiple transformation paths were found for the type {typeof(TTo).Name} and no IConsolidator interface exists that can combine them");
+            else
+                return consolidator.Consolidate(entries);
+        }
+
+        public Tuple<TTo,bool> TryTransform<TFrom, TTo>(TFrom source, IEnumerable<ITransformer> transformationsToApply)
         {
             object model = source;
 
             foreach (var transformer in transformationsToApply)
             {
-                model = transformer.TransformObject(model);
+                model = transformer.TryTransformObject(model);
+                if (model == null)
+                    return new Tuple<TTo, bool>(default(TTo), false);
             }
 
-            return (TTo)model;
+            return new Tuple<TTo, bool>((TTo)model, true);
         }
 
       

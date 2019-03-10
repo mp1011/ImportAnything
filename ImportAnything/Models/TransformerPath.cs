@@ -34,7 +34,7 @@ namespace ImportAnything.Models
         public override string ToString()
         {
             StringBuilder sb = new StringBuilder();
-            sb.Append(_list.First().Describe());
+            sb.Append(_list.First().ToString());
 
             foreach(var item in _list.Skip(1))
             {

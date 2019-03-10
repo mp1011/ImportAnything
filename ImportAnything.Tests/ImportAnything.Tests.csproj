@@ -59,10 +59,17 @@
     <Compile Include="Class1.cs" />
     <Compile Include="Models\SampleClasses.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Services\CSVTransformerTests.cs" />
     <Compile Include="Services\TransformerTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+    <None Include="SampleFiles\NoHeader\SampleCSV3.csv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="SampleFiles\SampleCSV2.csv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="SampleFiles\SampleCSV1.csv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

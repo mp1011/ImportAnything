@@ -50,13 +50,21 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="DIRegistrar.cs" />
+    <Compile Include="Models\CSV.cs" />
     <Compile Include="Models\TransformerGraph.cs" />
     <Compile Include="Models\TransformerPath.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Services\Consolidators\ArrayConsolidator.cs" />
+    <Compile Include="Services\Interfaces\IConsolidator.cs" />
     <Compile Include="Services\Interfaces\ITransformer.cs" />
     <Compile Include="Services\TransformerGraphBuilder.cs" />
     <Compile Include="Services\TransformerService.cs" />
+    <Compile Include="Services\Transformers\ArrayTransformer.cs" />
+    <Compile Include="Services\Transformers\CSVToDictionary.cs" />
+    <Compile Include="Services\Transformers\FileToCSV.cs" />
+    <Compile Include="Services\Transformers\FolderToFiles.cs" />
     <Compile Include="Services\Transformers\GenericTransformer.cs" />
+    <Compile Include="Services\TypeExtensions.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

@@ -1,4 +1,5 @@
-﻿using StructureMap;
+﻿using ImportAnything.Services.Interfaces;
+using StructureMap;
 using System.Linq;
 
 namespace ImportAnything
@@ -14,9 +15,11 @@ namespace ImportAnything
                 c.Scan(s =>
                 {
                     s.TheCallingAssembly();
-                    //s.AddAllTypesOf<????>();
-                    
-                });                
+                    s.AddAllTypesOf<IConsolidator>();
+                    s.ConnectImplementationsToTypesClosing(typeof(IConsolidator<>));
+                });        
+                
+                
             }));
         }
 

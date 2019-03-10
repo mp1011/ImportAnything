@@ -3,26 +3,27 @@ using ImportAnything.Services.Interfaces;
 
 namespace ImportAnything.Services.Transformers
 {
-    public class GenericTransformer<TFrom, TTo> : ITransformer<TFrom, TTo>
+    public class GenericTransformer<TFrom, TTo> : Transformer<TFrom, TTo>
     {
-        public Func<TFrom, TTo> _doTransform;
+        private Func<TFrom, TTo> _doTransform;
+        private Func<TFrom, bool> _canTransform;
 
-        public GenericTransformer(Func<TFrom, TTo> doTransform)
+
+        public GenericTransformer(Func<TFrom, TTo> doTransform, Func<TFrom, bool> canTransform=null)
         {
             _doTransform = doTransform;
+            _canTransform = canTransform ?? (p=>true);
         }
 
-        public TTo Transform(TFrom source)
+
+        protected override bool CanTransform(TFrom source)
+        {
+            return _canTransform(source);
+        }
+
+        protected override TTo Transform(TFrom source)
         {
             return _doTransform(source);
-        }
-
-        object ITransformer.TransformObject(object source)
-        {
-            if (source is TFrom)
-                return Transform((TFrom)source);
-            else
-                throw new InvalidCastException($"Source cannot be cast to type {typeof(TFrom).Name}");
         }
     }
 }
